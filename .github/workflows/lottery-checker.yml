@@ -1,0 +1,33 @@
+name: Lottery Checker
+
+on:
+  schedule:
+    # Run every Saturday at 17:00 CET (16:00 UTC in winter, 15:00 UTC in summer)
+    # Using 16:00 UTC as a compromise (CET is UTC+1, CEST is UTC+2)
+    - cron: '0 16 * * 6'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  lottery-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Run lottery checker
+      env:
+        LOTTERY_NUMBER: ${{ secrets.LOTTERY_NUMBER }}
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      run: |
+        python lottery_checker.py 
