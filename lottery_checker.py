@@ -52,7 +52,6 @@ class LotteryData(BaseModel):
     fecha: str
     url: str
     prize_info: Optional[str] = None
-    title: Optional[str] = None
     results: Optional[List[str]] = None
 
 
@@ -91,17 +90,21 @@ def fetch_lottery_data(numero: str, fecha: str) -> Optional[LotteryData]:
             "url": url,
         }
 
-        # Try to extract specific lottery results
-        title_elem = soup.find("title")
-        if title_elem:
-            lottery_info["title"] = title_elem.get_text().strip()
+        # Extract prize information from the text-premio span
+        prize_span = soup.find("span", class_="text-premio")
+        if prize_span:
+            # Check if there's a text-premio-det div (indicating a win)
+            prize_det_div = prize_span.find("div", class_="text-premio-det")
+            if prize_det_div:
+                # There's a win - extract only the text-premio-det content
+                prize_text = " ".join(prize_det_div.get_text().split())
+                logger.info(f"Premio encontrado: {prize_text}")
+            else:
+                # No win - extract the full text-premio span content
+                prize_text = " ".join(prize_span.get_text().split())
+                logger.info(f"Sin premio: {prize_text}")
 
-        # Extract prize information from the specific div
-        prize_div = soup.find("div", class_="text-premio-det")
-        if prize_div:
-            prize_text = prize_div.get_text().strip()
             lottery_info["prize_info"] = prize_text
-            logger.info(f"Información de premio encontrada: {prize_text}")
 
         # Look for lottery result elements as fallback
         result_elements = soup.find_all(
@@ -143,8 +146,6 @@ def create_success_message(lottery_data: LotteryData) -> DiscordMessage:
 
     if lottery_data.prize_info:
         embed.fields.append(DiscordField(name="🎉 Información del Premio", value=lottery_data.prize_info))
-    elif lottery_data.title:
-        embed.fields.append(DiscordField(name="Título de la Página", value=lottery_data.title))
 
     if lottery_data.results:
         embed.fields.append(DiscordField(name="Resultados Encontrados", value="\n".join(lottery_data.results[:3])))
