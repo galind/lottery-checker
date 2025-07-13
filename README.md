@@ -16,7 +16,7 @@ A Python script that automatically checks lottery results every Saturday at 17:0
 
 You need to configure two secrets in your GitHub repository:
 
-1. **LOTTERY_NUMERO**: Your lottery number to check
+1. **LOTTERY_NUMBER**: Your lottery number to check
 2. **DISCORD_WEBHOOK_URL**: Your Discord webhook URL
 
 #### Setting up GitHub Secrets:
@@ -26,7 +26,7 @@ You need to configure two secrets in your GitHub repository:
 3. Click on "Secrets and variables" → "Actions"
 4. Click "New repository secret"
 5. Add the following secrets:
-   - Name: `LOTTERY_NUMERO`, Value: Your lottery number (e.g., "23765")
+   - Name: `LOTTERY_NUMBER`, Value: Your lottery number (e.g., "23765")
    - Name: `DISCORD_WEBHOOK_URL`, Value: Your Discord webhook URL
 
 #### Creating a Discord Webhook:
@@ -54,7 +54,7 @@ To test the script locally:
 
 3. Set environment variables:
    ```bash
-   export LOTTERY_NUMERO="your_lottery_number"
+   export LOTTERY_NUMBER="your_lottery_number"
    export DISCORD_WEBHOOK_URL="your_discord_webhook_url"
    ```
 

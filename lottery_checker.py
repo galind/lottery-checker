@@ -125,11 +125,11 @@ def main():
     logger.info("Starting lottery checker...")
 
     # Get environment variables
-    numero = os.getenv("LOTTERY_NUMERO")
+    numero = os.getenv("LOTTERY_NUMBER")
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
 
     if not numero:
-        logger.error("LOTTERY_NUMERO environment variable not set")
+        logger.error("LOTTERY_NUMBER environment variable not set")
         return False
 
     if not webhook_url:

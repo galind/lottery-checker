@@ -27,7 +27,7 @@ jobs:
         
     - name: Run lottery checker
       env:
-        LOTTERY_NUMERO: ${{ secrets.LOTTERY_NUMERO }}
+        LOTTERY_NUMBER: ${{ secrets.LOTTERY_NUMBER }}
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       run: |
         python lottery_checker.py 

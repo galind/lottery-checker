@@ -13,15 +13,15 @@ def test_environment():
     """Test if environment variables are set"""
     print("🔍 Testing environment variables...")
 
-    numero = os.getenv("LOTTERY_NUMERO")
+    numero = os.getenv("LOTTERY_NUMBER")
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
 
     if not numero:
-        print("❌ LOTTERY_NUMERO not set")
-        print("   Set it with: export LOTTERY_NUMERO='your_lottery_number'")
+        print("❌ LOTTERY_NUMBER not set")
+        print("   Set it with: export LOTTERY_NUMBER='your_lottery_number'")
         return False
     else:
-        print(f"✅ LOTTERY_NUMERO: {numero}")
+        print(f"✅ LOTTERY_NUMBER: {numero}")
 
     if not webhook_url:
         print("❌ DISCORD_WEBHOOK_URL not set")
