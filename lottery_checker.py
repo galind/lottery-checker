@@ -36,6 +36,7 @@ class DiscordEmbed(BaseModel):
     fields: List[DiscordField] = Field(default_factory=list)
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
     url: Optional[str] = None
+    thumbnail: Optional[dict] = None
 
 
 class DiscordMessage(BaseModel):
@@ -146,6 +147,17 @@ def create_success_message(lottery_data: LotteryData) -> DiscordMessage:
         color=0x00FF00,
         url=lottery_data.url,
     )
+
+    # Check if there's a prize by looking for "no tiene premio" in the text
+    has_prize = lottery_data.prize_info and "no tiene premio" not in lottery_data.prize_info.lower()
+
+    # Set thumbnail based on prize status
+    if has_prize:
+        embed.thumbnail = {"url": "https://oecorazon.wordpress.com/wp-content/uploads/2015/03/gilito.jpg"}
+    else:
+        embed.thumbnail = {
+            "url": "https://media.istockphoto.com/id/473417884/es/vector/hombre-de-negocios-no-tiene-ning%C3%BAn-dinero.jpg?s=612x612&w=0&k=20&c=6bRxHp14noNfN4JAT-uG5OzlURNl6zSJW5QD4bI6YYc="
+        }
 
     if lottery_data.prize_info:
         embed.fields.append(DiscordField(name="🎉 Información del Premio", value=lottery_data.prize_info))
