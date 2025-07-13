@@ -8,13 +8,52 @@ import json
 import logging
 import os
 from datetime import datetime, timedelta
+from typing import List, Optional
 
 import requests
 from bs4 import BeautifulSoup
+from pydantic import BaseModel, Field
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
+
+class DiscordField(BaseModel):
+    """Discord embed field model"""
+
+    name: str
+    value: str
+    inline: bool = False
+
+
+class DiscordEmbed(BaseModel):
+    """Discord embed model"""
+
+    title: str
+    description: Optional[str] = None
+    color: int = 0x00FF00
+    fields: List[DiscordField] = Field(default_factory=list)
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
+    url: Optional[str] = None
+
+
+class DiscordMessage(BaseModel):
+    """Discord message model"""
+
+    content: Optional[str] = None
+    embeds: List[DiscordEmbed] = Field(default_factory=list)
+
+
+class LotteryData(BaseModel):
+    """Lottery data model"""
+
+    numero: str
+    fecha: str
+    url: str
+    prize_info: Optional[str] = None
+    title: Optional[str] = None
+    results: Optional[List[str]] = None
 
 
 def get_saturday_date():
@@ -33,12 +72,12 @@ def get_saturday_date():
     return saturday_date.strftime("%Y-%m-%d")
 
 
-def fetch_lottery_data(numero, fecha):
+def fetch_lottery_data(numero: str, fecha: str) -> Optional[LotteryData]:
     """Fetch lottery data from Mundo Deportivo"""
     url = f"https://nacionalloteria.mundodeportivo.com/Loteria-Nacional-Sabado.php?numero={numero}&del-dia={fecha}"
 
     try:
-        logger.info(f"Fetching lottery data from: {url}")
+        logger.info(f"Obteniendo datos de lotería desde: {url}")
         response = requests.get(url, timeout=30)
         response.raise_for_status()
 
@@ -46,12 +85,10 @@ def fetch_lottery_data(numero, fecha):
         soup = BeautifulSoup(response.content, "html.parser")
 
         # Extract lottery information
-        # Note: The actual selectors may need adjustment based on the website structure
         lottery_info = {
             "numero": numero,
             "fecha": fecha,
             "url": url,
-            "raw_content": response.text[:500] + "..." if len(response.text) > 500 else response.text,
         }
 
         # Try to extract specific lottery results
@@ -64,7 +101,7 @@ def fetch_lottery_data(numero, fecha):
         if prize_div:
             prize_text = prize_div.get_text().strip()
             lottery_info["prize_info"] = prize_text
-            logger.info(f"Found prize info: {prize_text}")
+            logger.info(f"Información de premio encontrada: {prize_text}")
 
         # Look for lottery result elements as fallback
         result_elements = soup.find_all(
@@ -74,82 +111,84 @@ def fetch_lottery_data(numero, fecha):
         if result_elements:
             lottery_info["results"] = [elem.get_text().strip() for elem in result_elements[:5]]
 
-        return lottery_info
+        return LotteryData(**lottery_info)
 
     except requests.RequestException as e:
-        logger.error(f"Error fetching lottery data: {e}")
+        logger.error(f"Error obteniendo datos de lotería: {e}")
         return None
 
 
-def send_discord_message(webhook_url, lottery_data):
+def create_error_message() -> DiscordMessage:
+    """Create error message for Discord"""
+    return DiscordMessage(
+        content="❌ Error: No se pudieron obtener los datos de lotería",
+        embeds=[
+            DiscordEmbed(
+                title="Error al Verificar Lotería",
+                description="No se pudieron obtener los datos de lotería desde Mundo Deportivo",
+                color=0xFF0000,
+            )
+        ],
+    )
+
+
+def create_success_message(lottery_data: LotteryData) -> DiscordMessage:
+    """Create success message for Discord"""
+    embed = DiscordEmbed(
+        title=f"🎰 Resultados de Lotería - {lottery_data.fecha}",
+        description=f"Verificando número de lotería: **{lottery_data.numero}**",
+        color=0x00FF00,
+        url=lottery_data.url,
+    )
+
+    if lottery_data.prize_info:
+        embed.fields.append(DiscordField(name="🎉 Información del Premio", value=lottery_data.prize_info))
+    elif lottery_data.title:
+        embed.fields.append(DiscordField(name="Título de la Página", value=lottery_data.title))
+
+    if lottery_data.results:
+        embed.fields.append(DiscordField(name="Resultados Encontrados", value="\n".join(lottery_data.results[:3])))
+
+    return DiscordMessage(embeds=[embed])
+
+
+def send_discord_message(webhook_url: str, lottery_data: Optional[LotteryData]) -> bool:
     """Send lottery data to Discord webhook"""
     if not lottery_data:
-        message = {
-            "content": "❌ Error: Could not fetch lottery data",
-            "embeds": [
-                {
-                    "title": "Lottery Check Failed",
-                    "description": "Failed to fetch lottery data from Mundo Deportivo",
-                    "color": 0xFF0000,
-                    "timestamp": datetime.now().isoformat(),
-                }
-            ],
-        }
+        message = create_error_message()
     else:
-        # Create a formatted message
-        embed = {
-            "title": f"🎰 Lottery Results - {lottery_data['fecha']}",
-            "description": f"Checking lottery number: **{lottery_data['numero']}**",
-            "color": 0x00FF00,
-            "fields": [],
-            "timestamp": datetime.now().isoformat(),
-            "url": lottery_data["url"],
-        }
-
-        if "prize_info" in lottery_data:
-            embed["fields"].append(
-                {"name": "🎉 Prize Information", "value": lottery_data["prize_info"], "inline": False}
-            )
-        elif "title" in lottery_data:
-            embed["fields"].append({"name": "Page Title", "value": lottery_data["title"], "inline": False})
-
-        if "results" in lottery_data and lottery_data["results"]:
-            embed["fields"].append(
-                {"name": "Results Found", "value": "\n".join(lottery_data["results"][:3]), "inline": False}
-            )
-
-        message = {"embeds": [embed]}
+        message = create_success_message(lottery_data)
 
     try:
-        logger.info("Sending message to Discord webhook")
-        response = requests.post(webhook_url, json=message, timeout=30)
+        logger.info("Enviando mensaje al webhook de Discord")
+        response = requests.post(webhook_url, json=message.model_dump(), timeout=30)
         response.raise_for_status()
-        logger.info("Message sent successfully to Discord")
+        logger.info("Mensaje enviado exitosamente a Discord")
         return True
     except requests.RequestException as e:
-        logger.error(f"Error sending Discord message: {e}")
+        logger.error(f"Error enviando mensaje a Discord: {e}")
         return False
 
 
 def main():
     """Main function to run the lottery checker"""
-    logger.info("Starting lottery checker...")
+    logger.info("Iniciando verificador de lotería...")
 
     # Get environment variables
     numero = os.getenv("LOTTERY_NUMBER")
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
 
     if not numero:
-        logger.error("LOTTERY_NUMBER environment variable not set")
+        logger.error("Variable de entorno LOTTERY_NUMBER no configurada")
         return False
 
     if not webhook_url:
-        logger.error("DISCORD_WEBHOOK_URL environment variable not set")
+        logger.error("Variable de entorno DISCORD_WEBHOOK_URL no configurada")
         return False
 
     # Get Saturday's date
     saturday_date = get_saturday_date()
-    logger.info(f"Checking lottery for Saturday: {saturday_date}")
+    logger.info(f"Verificando lotería para el sábado: {saturday_date}")
 
     # Fetch lottery data
     lottery_data = fetch_lottery_data(numero, saturday_date)
@@ -158,9 +197,9 @@ def main():
     success = send_discord_message(webhook_url, lottery_data)
 
     if success:
-        logger.info("Lottery check completed successfully")
+        logger.info("Verificación de lotería completada exitosamente")
     else:
-        logger.error("Lottery check failed")
+        logger.error("Verificación de lotería falló")
 
     return success
 
