@@ -101,7 +101,7 @@ def fetch_lottery_data(numero: str, fecha: str) -> Optional[LotteryData]:
                 logger.info(f"Premio encontrado: {prize_text}")
             else:
                 # No win - extract the full text-premio span content
-                prize_text = " ".join(prize_span.get_text().split())
+                prize_text = prize_span.get_text().strip()
                 logger.info(f"Sin premio: {prize_text}")
 
             lottery_info["prize_info"] = prize_text
