@@ -101,6 +101,9 @@ def fetch_lottery_data(numero: str, fecha: str) -> Optional[LotteryData]:
                 logger.info(f"Premio encontrado: {prize_text}")
             else:
                 # No win - extract the full text-premio span content
+                # Replace <br> tags with spaces before getting text
+                for br_tag in prize_span.find_all("br"):
+                    br_tag.replace_with(" ")
                 prize_text = prize_span.get_text().strip()
                 logger.info(f"Sin premio: {prize_text}")
 
