@@ -18,16 +18,17 @@ logger = logging.getLogger(__name__)
 
 
 def get_saturday_date():
-    """Get the current Saturday's date in YYYY-MM-DD format"""
+    """Get the last Saturday's date in YYYY-MM-DD format"""
     today = datetime.now()
-    # Calculate days until next Saturday (5 = Saturday)
-    days_until_saturday = (5 - today.weekday()) % 7
-    if days_until_saturday == 0:
-        # Today is Saturday
+
+    # Calculate days since last Saturday (5 = Saturday)
+    days_since_saturday = (today.weekday() - 5) % 7
+
+    # If today is Saturday, use today; otherwise, go back to last Saturday
+    if days_since_saturday == 0:
         saturday_date = today
     else:
-        # Get next Saturday
-        saturday_date = today + timedelta(days=days_until_saturday)
+        saturday_date = today - timedelta(days=days_since_saturday)
 
     return saturday_date.strftime("%Y-%m-%d")
 
@@ -54,12 +55,18 @@ def fetch_lottery_data(numero, fecha):
         }
 
         # Try to extract specific lottery results
-        # This is a placeholder - you may need to adjust based on actual website structure
         title_elem = soup.find("title")
         if title_elem:
             lottery_info["title"] = title_elem.get_text().strip()
 
-        # Look for lottery result elements
+        # Extract prize information from the specific div
+        prize_div = soup.find("div", class_="text-premio-det")
+        if prize_div:
+            prize_text = prize_div.get_text().strip()
+            lottery_info["prize_info"] = prize_text
+            logger.info(f"Found prize info: {prize_text}")
+
+        # Look for lottery result elements as fallback
         result_elements = soup.find_all(
             ["div", "span", "p"],
             class_=lambda x: x and any(word in x.lower() for word in ["resultado", "premio", "numero", "loteria"]),
@@ -99,7 +106,11 @@ def send_discord_message(webhook_url, lottery_data):
             "url": lottery_data["url"],
         }
 
-        if "title" in lottery_data:
+        if "prize_info" in lottery_data:
+            embed["fields"].append(
+                {"name": "🎉 Prize Information", "value": lottery_data["prize_info"], "inline": False}
+            )
+        elif "title" in lottery_data:
             embed["fields"].append({"name": "Page Title", "value": lottery_data["title"], "inline": False})
 
         if "results" in lottery_data and lottery_data["results"]:
