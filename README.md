@@ -47,13 +47,18 @@ To test the script locally:
    pip install -r requirements.txt
    ```
 
-2. Set environment variables:
+2. Set up pre-commit hooks (optional but recommended):
+   ```bash
+   pre-commit install
+   ```
+
+3. Set environment variables:
    ```bash
    export LOTTERY_NUMERO="your_lottery_number"
    export DISCORD_WEBHOOK_URL="your_discord_webhook_url"
    ```
 
-3. Run the script:
+4. Run the script:
    ```bash
    python lottery_checker.py
    ```
@@ -75,6 +80,36 @@ lottery-notifier/
 ├── requirements.txt           # Python dependencies
 ├── README.md                 # This file
 └── LICENSE                   # License file
+```
+
+## Development
+
+### Code Formatting
+
+This project uses [Black](https://black.readthedocs.io/) for code formatting and [isort](https://pycqa.github.io/isort/) for import sorting. These are configured as pre-commit hooks.
+
+To format your code:
+```bash
+# Format with Black
+black .
+
+# Sort imports with isort
+isort .
+
+# Or run both via pre-commit
+pre-commit run --all-files
+```
+
+### Pre-commit Hooks
+
+The project includes pre-commit hooks for code quality:
+- **Black**: Code formatting
+- **isort**: Import sorting
+
+To set up pre-commit hooks:
+```bash
+pip install -r requirements.txt
+pre-commit install
 ```
 
 ## Customization
