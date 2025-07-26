@@ -7,6 +7,8 @@ A Python script that automatically checks lottery results every Saturday at 17:0
 - 🎰 Fetches lottery data from Mundo Deportivo
 - ⏰ Runs automatically every Saturday at 17:00 CET
 - 📱 Sends formatted notifications to Discord
+- 📊 Analyzes historical lottery data and calculates statistics
+- 💰 Tracks money spent, won, and ROI
 - 🔧 Configurable via GitHub Secrets
 - 🚀 Runs on GitHub Actions
 
@@ -75,11 +77,73 @@ To test the script locally:
 ```
 lottery-notifier/
 ├── .github/workflows/
-│   └── lottery-checker.yml    # GitHub Actions workflow
-├── lottery_checker.py         # Main Python script
+│   ├── lottery-checker.yml    # GitHub Actions workflow for notifications
+│   └── lottery-analyzer.yml   # GitHub Actions workflow for analysis
+├── lottery_checker.py         # Main Python script for notifications
+├── lottery_analyzer.py        # Lottery analysis script
 ├── requirements.txt           # Python dependencies
 ├── README.md                 # This file
 └── LICENSE                   # License file
+```
+
+## Lottery Analyzer
+
+The project includes a comprehensive lottery analyzer that can check historical results and calculate statistics.
+
+### Features
+
+- **Historical Analysis**: Checks all Saturday results for a given date range
+- **Financial Tracking**: Calculates total spent, won, and net profit
+- **Statistics**: Win rate, biggest prize, last win date
+- **Detailed Reports**: Shows last 10 results with full history saved to JSON
+
+### Usage
+
+#### Local Usage
+
+```bash
+# Analyze last 6 months (default)
+python lottery_analyzer.py
+
+# With custom date range
+export ANALYSIS_START_DATE="2024-01-01"
+export ANALYSIS_END_DATE="2024-12-31"
+python lottery_analyzer.py
+```
+
+#### GitHub Actions
+
+1. Go to your repository → Actions
+2. Select "Lottery Analyzer" workflow
+3. Click "Run workflow"
+4. Optionally set start and end dates
+5. Download results from artifacts
+
+### Sample Report
+
+```
+🎰 ANÁLISIS DE LOTERÍA NACIONAL
+
+Número analizado: 23765
+Período: 2024-07-01 - 2024-12-31
+
+📊 ESTADÍSTICAS GENERALES
+• Total de boletos: 26
+• Tasa de acierto: 7.7%
+• Mayor premio: €15.00
+• Última victoria: 2024-12-14
+
+💰 ANÁLISIS ECONÓMICO
+• Total gastado: €156.00
+• Total ganado: €30.00
+• Beneficio neto: -€126.00
+• ROI: -80.8%
+
+🎯 RESULTADOS DETALLADOS
+❌ 2024-12-28: El número 23765 no tiene premio
+🎉 2024-12-14: Reintegro - Premio de 15 €
+❌ 2024-12-07: El número 23765 no tiene premio
+...
 ```
 
 ## Development
