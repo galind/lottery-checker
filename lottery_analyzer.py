@@ -7,6 +7,8 @@ Analyzes historical lottery results for a given number and calculates statistics
 import json
 import logging
 import os
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
@@ -101,60 +103,75 @@ def find_earliest_available_data(numero: str, max_lookback_days: int = 365) -> O
 def fetch_all_available_data(numero: str) -> LotteryAnalysis:
     """Fetch ALL available Saturday results for a given number"""
     logger.info(f"Buscando TODOS los datos disponibles para el número {numero}")
-    
+
+    # First, find the earliest available data by checking recent dates
+    earliest_date = find_earliest_available_data(numero, max_lookback_days=365)
+    if not earliest_date:
+        logger.warning("No se encontraron datos disponibles")
+        return LotteryAnalysis(
+            numero=numero,
+            total_tickets=0,
+            total_spent=0.0,
+            total_won=0.0,
+            net_profit=0.0,
+            win_rate=0.0,
+            biggest_prize=0.0,
+            results=[]
+        )
+
+    # Generate all Saturday dates from earliest to today
+    end_date = datetime.now().strftime("%Y-%m-%d")
+    saturday_dates = generate_date_range(earliest_date, end_date)
+    logger.info(f"Verificando {len(saturday_dates)} sábados con multithreading")
+
     results = []
-    current_date = datetime.now()
-    consecutive_no_data = 0
-    max_consecutive_no_data = 10  # Stop after 10 consecutive dates with no data
     total_spent = 0.0
     total_won = 0.0
     wins = 0
     biggest_prize = 0.0
     last_win_date = None
+
+    # Use ThreadPoolExecutor for concurrent requests
+    max_workers = 5  # Limit concurrent requests to be respectful to the server
     
-    while consecutive_no_data < max_consecutive_no_data:
-        # Get the previous Saturday
-        days_since_saturday = (current_date.weekday() - 5) % 7
-        if days_since_saturday == 0:
-            # Today is Saturday, go back 7 days
-            saturday_date = current_date - timedelta(days=7)
-        else:
-            saturday_date = current_date - timedelta(days=days_since_saturday)
-        
-        date_str = saturday_date.strftime("%Y-%m-%d")
-        logger.info(f"Verificando {date_str}...")
-        
-        result = fetch_lottery_data_for_date(numero, date_str)
-        
+    def fetch_single_date(date: str) -> Optional[LotteryResult]:
+        """Fetch data for a single date"""
+        result = fetch_lottery_data_for_date(numero, date)
         if result:
-            consecutive_no_data = 0  # Reset counter when we find data
-            results.append(result)
-            total_spent += result.ticket_cost
-            
-            if result.has_prize:
-                total_won += result.prize_amount
-                wins += 1
-                last_win_date = date_str
-                biggest_prize = max(biggest_prize, result.prize_amount)
-                logger.info(f"🎉 {date_str}: {result.prize_info} (€{result.prize_amount})")
-            else:
-                logger.info(f"❌ {date_str}: Sin premio")
+            status = "🎉" if result.has_prize else "❌"
+            logger.info(f"{status} {date}: {result.prize_info}")
         else:
-            consecutive_no_data += 1
-            logger.info(f"📭 {date_str}: Sin datos disponibles ({consecutive_no_data}/{max_consecutive_no_data})")
+            logger.info(f"📭 {date}: Sin datos disponibles")
+        return result
+
+    # Fetch all dates concurrently
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        future_to_date = {executor.submit(fetch_single_date, date): date for date in saturday_dates}
         
-        # Move to the previous Saturday
-        current_date = saturday_date
-        
-        # Add a small delay to be respectful to the server
-        import time
-        time.sleep(0.5)
-    
-    logger.info(f"Deteniendo búsqueda después de {consecutive_no_data} sábados consecutivos sin datos")
-    
+        # Collect results as they complete
+        for future in as_completed(future_to_date):
+            date = future_to_date[future]
+            try:
+                result = future.result()
+                if result:
+                    results.append(result)
+                    total_spent += result.ticket_cost
+
+                    if result.has_prize:
+                        total_won += result.prize_amount
+                        wins += 1
+                        last_win_date = date
+                        biggest_prize = max(biggest_prize, result.prize_amount)
+            except Exception as e:
+                logger.error(f"Error procesando {date}: {e}")
+
+    # Sort results by date (oldest first)
+    results.sort(key=lambda x: x.date)
+
     net_profit = total_won - total_spent
     win_rate = (wins / len(results)) * 100 if results else 0
-    
+
     return LotteryAnalysis(
         numero=numero,
         total_tickets=len(results),
@@ -171,53 +188,59 @@ def fetch_all_available_data(numero: str) -> LotteryAnalysis:
 def analyze_lottery_history(numero: str, start_date: str, end_date: str) -> LotteryAnalysis:
     """Analyze lottery history for a given number and date range"""
     logger.info(f"Iniciando análisis para número {numero} desde {start_date} hasta {end_date}")
-    
+
     # Generate all Saturday dates in the range
     saturday_dates = generate_date_range(start_date, end_date)
-    logger.info(f"Verificando {len(saturday_dates)} sábados")
-    
+    logger.info(f"Verificando {len(saturday_dates)} sábados con multithreading")
+
     results = []
     total_spent = 0.0
     total_won = 0.0
     wins = 0
     biggest_prize = 0.0
     last_win_date = None
-    consecutive_no_data = 0
-    max_consecutive_no_data = 5  # Stop after 5 consecutive dates with no data
+
+    # Use ThreadPoolExecutor for concurrent requests
+    max_workers = 5  # Limit concurrent requests to be respectful to the server
     
-    for date in saturday_dates:
+    def fetch_single_date(date: str) -> Optional[LotteryResult]:
+        """Fetch data for a single date"""
         result = fetch_lottery_data_for_date(numero, date)
-        
         if result:
-            # Reset consecutive no-data counter when we find data
-            consecutive_no_data = 0
-            results.append(result)
-            total_spent += result.ticket_cost
-            
-            if result.has_prize:
-                total_won += result.prize_amount
-                wins += 1
-                last_win_date = date
-                biggest_prize = max(biggest_prize, result.prize_amount)
-                logger.info(f"🎉 {date}: {result.prize_info} (€{result.prize_amount})")
-            else:
-                logger.info(f"❌ {date}: Sin premio")
+            status = "🎉" if result.has_prize else "❌"
+            logger.info(f"{status} {date}: {result.prize_info}")
         else:
-            consecutive_no_data += 1
             logger.info(f"📭 {date}: Sin datos disponibles")
-            
-            # Stop if we've hit too many consecutive dates with no data
-            if consecutive_no_data >= max_consecutive_no_data:
-                logger.info(f"Deteniendo análisis después de {consecutive_no_data} fechas consecutivas sin datos")
-                break
+        return result
+
+    # Fetch all dates concurrently
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        future_to_date = {executor.submit(fetch_single_date, date): date for date in saturday_dates}
         
-        # Add a small delay to be respectful to the server
-        import time
-        time.sleep(0.5)
-    
+        # Collect results as they complete
+        for future in as_completed(future_to_date):
+            date = future_to_date[future]
+            try:
+                result = future.result()
+                if result:
+                    results.append(result)
+                    total_spent += result.ticket_cost
+
+                    if result.has_prize:
+                        total_won += result.prize_amount
+                        wins += 1
+                        last_win_date = date
+                        biggest_prize = max(biggest_prize, result.prize_amount)
+            except Exception as e:
+                logger.error(f"Error procesando {date}: {e}")
+
+    # Sort results by date (oldest first)
+    results.sort(key=lambda x: x.date)
+
     net_profit = total_won - total_spent
     win_rate = (wins / len(results)) * 100 if results else 0
-    
+
     return LotteryAnalysis(
         numero=numero,
         total_tickets=len(results),
