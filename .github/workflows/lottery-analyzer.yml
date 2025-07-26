@@ -32,11 +32,13 @@ jobs:
         
     - name: Run lottery analyzer
       env:
-        LOTTERY_NUMBER: ${{ secrets.LOTTERY_NUMBER }}
         ANALYSIS_START_DATE: ${{ github.event.inputs.start_date }}
         ANALYSIS_END_DATE: ${{ github.event.inputs.end_date }}
       run: |
-        python lottery_analyzer.py
+        # Note: This workflow requires manual input of lottery number
+        # You can modify this to use a secret or add it as an input
+        echo "Please run this locally with: python lottery_analyzer.py <numero>"
+        echo "Example: python lottery_analyzer.py 23765"
         
     - name: Upload analysis results
       uses: actions/upload-artifact@v3

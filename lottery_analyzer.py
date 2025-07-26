@@ -376,16 +376,32 @@ def main():
     """Main function to run the lottery analyzer"""
     logger.info("Iniciando analizador de lotería...")
     
-    # Get environment variables
-    numero = os.getenv("LOTTERY_NUMBER")
-    
-    if not numero:
-        logger.error("Variable de entorno LOTTERY_NUMBER no configurada")
+    # Get lottery number from command line argument
+    import sys
+    if len(sys.argv) < 2:
+        logger.error("Debe proporcionar un número de lotería")
+        logger.error("Uso: python lottery_analyzer.py <numero> [fecha_inicio] [fecha_fin]")
+        logger.error("Ejemplo: python lottery_analyzer.py 23765")
+        logger.error("Ejemplo: python lottery_analyzer.py 23765 2024-01-01 2024-12-31")
         return False
     
-    # Get date range from environment variables
-    start_date = os.getenv("ANALYSIS_START_DATE")
-    end_date = os.getenv("ANALYSIS_END_DATE")
+    numero = sys.argv[1]
+    logger.info(f"Número de lotería: {numero}")
+    
+    # Get date range from command line arguments or environment variables
+    start_date = None
+    end_date = None
+    
+    if len(sys.argv) >= 3:
+        start_date = sys.argv[2]
+    if len(sys.argv) >= 4:
+        end_date = sys.argv[3]
+    
+    # Fallback to environment variables if not provided as arguments
+    if not start_date:
+        start_date = os.getenv("ANALYSIS_START_DATE")
+    if not end_date:
+        end_date = os.getenv("ANALYSIS_END_DATE")
     
     # If no dates provided, fetch ALL available data
     if not start_date and not end_date:

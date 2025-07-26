@@ -102,13 +102,16 @@ The project includes a comprehensive lottery analyzer that can check historical 
 #### Local Usage
 
 ```bash
-# Analyze last 6 months (default)
-python lottery_analyzer.py
+# Analyze ALL available data for a number
+python lottery_analyzer.py 23765
 
 # With custom date range
+python lottery_analyzer.py 23765 2024-01-01 2024-12-31
+
+# Using environment variables for dates
 export ANALYSIS_START_DATE="2024-01-01"
 export ANALYSIS_END_DATE="2024-12-31"
-python lottery_analyzer.py
+python lottery_analyzer.py 23765
 ```
 
 #### GitHub Actions
