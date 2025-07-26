@@ -189,6 +189,24 @@ def analyze_lottery_history(numero: str, start_date: str, end_date: str) -> Lott
     """Analyze lottery history for a given number and date range"""
     logger.info(f"Iniciando análisis para número {numero} desde {start_date} hasta {end_date}")
 
+    # Validate date range
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    
+    if end_dt < start_dt:
+        logger.error(f"❌ Rango de fechas inválido: La fecha final ({end_date}) es anterior a la fecha inicial ({start_date})")
+        logger.error("💡 Sugerencia: Asegúrate de que la fecha final sea posterior a la fecha inicial")
+        return LotteryAnalysis(
+            numero=numero,
+            total_tickets=0,
+            total_spent=0.0,
+            total_won=0.0,
+            net_profit=0.0,
+            win_rate=0.0,
+            biggest_prize=0.0,
+            results=[]
+        )
+
     # Generate all Saturday dates in the range
     saturday_dates = generate_date_range(start_date, end_date)
     logger.info(f"Verificando {len(saturday_dates)} sábados con multithreading")
