@@ -3,6 +3,10 @@ name: Lottery Analyzer
 on:
   workflow_dispatch:
     inputs:
+      lottery_number:
+        description: 'Lottery number to analyze'
+        required: true
+        type: string
       start_date:
         description: 'Start date (YYYY-MM-DD)'
         required: false
@@ -35,10 +39,7 @@ jobs:
         ANALYSIS_START_DATE: ${{ github.event.inputs.start_date }}
         ANALYSIS_END_DATE: ${{ github.event.inputs.end_date }}
       run: |
-        # Note: This workflow requires manual input of lottery number
-        # You can modify this to use a secret or add it as an input
-        echo "Please run this locally with: python lottery_analyzer.py <numero>"
-        echo "Example: python lottery_analyzer.py 23765"
+        python lottery_analyzer.py ${{ github.event.inputs.lottery_number }}
         
     - name: Upload analysis results
       uses: actions/upload-artifact@v3
