@@ -13,8 +13,15 @@ from dataclasses import dataclass
 from collections import defaultdict
 
 import requests
-from bs4 import BeautifulSoup
 from pydantic import BaseModel, Field
+
+from lottery_utils import (
+    fetch_lottery_data,
+    generate_date_range,
+    get_previous_saturday,
+    parse_prize_amount,
+    get_ticket_cost,
+)
 
 
 # Configure logging
@@ -46,108 +53,19 @@ class LotteryAnalysis(BaseModel):
     results: List[LotteryResult] = Field(default_factory=list)
 
 
-def parse_prize_amount(prize_text: str) -> float:
-    """Parse prize amount from text"""
-    if not prize_text or "no tiene premio" in prize_text.lower():
-        return 0.0
-    
-    # Look for euro amounts in the text
-    import re
-    euro_pattern = r'(\d+(?:,\d+)?)\s*€'
-    matches = re.findall(euro_pattern, prize_text)
-    
-    if matches:
-        # Take the first (and usually largest) amount
-        amount_str = matches[0].replace(',', '.')
-        try:
-            return float(amount_str)
-        except ValueError:
-            return 0.0
-    
-    return 0.0
-
-
-def get_ticket_cost(date: str) -> float:
-    """Get ticket cost for a specific date (Saturday tickets cost 6€)"""
-    return 6.0
-
-
 def fetch_lottery_data_for_date(numero: str, fecha: str) -> Optional[LotteryResult]:
     """Fetch lottery data for a specific date"""
-    url = f"https://nacionalloteria.mundodeportivo.com/Loteria-Nacional-Sabado.php?numero={numero}&del-dia={fecha}"
-    
-    try:
-        logger.info(f"Verificando {fecha} para número {numero}")
-        response = requests.get(url, timeout=30)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.content, "html.parser")
-        
-        # Check if the page indicates no data is available
-        # Look for common indicators that the date is too far in the future
-        page_title = soup.find("title")
-        if page_title:
-            title_text = page_title.get_text().lower()
-            if any(keyword in title_text for keyword in ["error", "no encontrado", "no disponible", "404"]):
-                logger.info(f"No hay datos disponibles para {fecha}")
-                return None
-        
-        # Extract prize information from the text-premio span
-        prize_span = soup.find("span", class_="text-premio")
-        if not prize_span:
-            # If no prize span is found, the date might not have data
-            logger.info(f"No se encontró información de premio para {fecha}")
-            return None
-        
-        # Check if there's a text-premio-det div (indicating a win)
-        prize_det_div = prize_span.find("div", class_="text-premio-det")
-        if prize_det_div:
-            # There's a win - extract only the text-premio-det content
-            prize_text = " ".join(prize_det_div.get_text().split())
-        else:
-            # No win - extract the full text-premio span content
-            for br_tag in prize_span.find_all("br"):
-                br_tag.replace_with(" ")
-            prize_text = prize_span.get_text().strip()
-        
-        # Additional check: if the text is empty or very short, might be no data
-        if not prize_text or len(prize_text.strip()) < 5:
-            logger.info(f"Texto de premio vacío para {fecha}")
-            return None
-        
-        has_prize = "no tiene premio" not in prize_text.lower()
-        prize_amount = parse_prize_amount(prize_text)
-        ticket_cost = get_ticket_cost(fecha)
-        
+    data = fetch_lottery_data(numero, fecha)
+    if data:
         return LotteryResult(
             date=fecha,
             numero=numero,
-            prize_info=prize_text,
-            has_prize=has_prize,
-            prize_amount=prize_amount,
-            ticket_cost=ticket_cost
+            prize_info=data["prize_info"],
+            has_prize=data["has_prize"],
+            prize_amount=data["prize_amount"],
+            ticket_cost=data["ticket_cost"],
         )
-        
-    except requests.RequestException as e:
-        logger.error(f"Error obteniendo datos para {fecha}: {e}")
-        return None
-
-
-def generate_date_range(start_date: str, end_date: str) -> List[str]:
-    """Generate list of Saturday dates between start and end"""
-    start = datetime.strptime(start_date, "%Y-%m-%d")
-    end = datetime.strptime(end_date, "%Y-%m-%d")
-    
-    dates = []
-    current = start
-    
-    while current <= end:
-        # Only include Saturdays
-        if current.weekday() == 5:  # Saturday
-            dates.append(current.strftime("%Y-%m-%d"))
-        current += timedelta(days=1)
-    
-    return dates
+    return None
 
 
 def find_earliest_available_data(numero: str, max_lookback_days: int = 365) -> Optional[str]:

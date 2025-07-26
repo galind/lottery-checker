@@ -11,8 +11,9 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 import requests
-from bs4 import BeautifulSoup
 from pydantic import BaseModel, Field
+
+from lottery_utils import get_saturday_date, fetch_lottery_data
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -56,73 +57,17 @@ class LotteryData(BaseModel):
     results: Optional[List[str]] = None
 
 
-def get_saturday_date():
-    """Get the last Saturday's date in YYYY-MM-DD format"""
-    today = datetime.now()
-
-    # Calculate days since last Saturday (5 = Saturday)
-    days_since_saturday = (today.weekday() - 5) % 7
-
-    # If today is Saturday, use today; otherwise, go back to last Saturday
-    if days_since_saturday == 0:
-        saturday_date = today
-    else:
-        saturday_date = today - timedelta(days=days_since_saturday)
-
-    return saturday_date.strftime("%Y-%m-%d")
-
-
-def fetch_lottery_data(numero: str, fecha: str) -> Optional[LotteryData]:
-    """Fetch lottery data from Mundo Deportivo"""
-    url = f"https://nacionalloteria.mundodeportivo.com/Loteria-Nacional-Sabado.php?numero={numero}&del-dia={fecha}"
-
-    try:
-        logger.info(f"Obteniendo datos de lotería desde: {url}")
-        response = requests.get(url, timeout=30)
-        response.raise_for_status()
-
-        # Parse the HTML content
-        soup = BeautifulSoup(response.content, "html.parser")
-
-        # Extract lottery information
-        lottery_info = {
-            "numero": numero,
-            "fecha": fecha,
-            "url": url,
-        }
-
-        # Extract prize information from the text-premio span
-        prize_span = soup.find("span", class_="text-premio")
-        if prize_span:
-            # Check if there's a text-premio-det div (indicating a win)
-            prize_det_div = prize_span.find("div", class_="text-premio-det")
-            if prize_det_div:
-                # There's a win - extract only the text-premio-det content
-                prize_text = " ".join(prize_det_div.get_text().split())
-                logger.info(f"Premio encontrado: {prize_text}")
-            else:
-                # No win - extract the full text-premio span content
-                # Replace <br> tags with spaces before getting text
-                for br_tag in prize_span.find_all("br"):
-                    br_tag.replace_with(" ")
-                prize_text = prize_span.get_text().strip()
-                logger.info(f"Sin premio: {prize_text}")
-
-            lottery_info["prize_info"] = prize_text
-
-        # Look for lottery result elements as fallback
-        result_elements = soup.find_all(
-            ["div", "span", "p"],
-            class_=lambda x: x and any(word in x.lower() for word in ["resultado", "premio", "numero", "loteria"]),
+def fetch_lottery_data_for_checker(numero: str, fecha: str) -> Optional[LotteryData]:
+    """Fetch lottery data and convert to LotteryData model for checker"""
+    data = fetch_lottery_data(numero, fecha)
+    if data:
+        return LotteryData(
+            numero=data["numero"],
+            fecha=data["fecha"],
+            url=data["url"],
+            prize_info=data["prize_info"]
         )
-        if result_elements:
-            lottery_info["results"] = [elem.get_text().strip() for elem in result_elements[:5]]
-
-        return LotteryData(**lottery_info)
-
-    except requests.RequestException as e:
-        logger.error(f"Error obteniendo datos de lotería: {e}")
-        return None
+    return None
 
 
 def create_error_message() -> DiscordMessage:
@@ -207,7 +152,7 @@ def main():
     logger.info(f"Verificando lotería para el sábado: {saturday_date}")
 
     # Fetch lottery data
-    lottery_data = fetch_lottery_data(numero, saturday_date)
+    lottery_data = fetch_lottery_data_for_checker(numero, saturday_date)
 
     # Send to Discord
     success = send_discord_message(webhook_url, lottery_data)
