@@ -70,8 +70,61 @@ def fetch_lottery_data_for_date(numero: str, fecha: str) -> Optional[LotteryResu
     return None
 
 
+def find_earliest_available_data_binary(numero: str, max_years_back: int = 20) -> Optional[str]:
+    """Find the earliest date with available lottery data using binary search"""
+    logger.info(f"Buscando la fecha más antigua con búsqueda binaria (hasta {max_years_back} años atrás)")
+    
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=365 * max_years_back)
+    
+    # Generate all Saturday dates in the range
+    all_saturdays = []
+    current = start_date
+    while current <= end_date:
+        if current.weekday() == 5:  # Saturday
+            all_saturdays.append(current.strftime("%Y-%m-%d"))
+        current += timedelta(days=1)
+    
+    if not all_saturdays:
+        logger.warning("No se encontraron sábados en el rango")
+        return None
+    
+    # Binary search to find the earliest date with data
+    left, right = 0, len(all_saturdays) - 1
+    earliest_found = None
+    
+    while left <= right:
+        mid = (left + right) // 2
+        test_date = all_saturdays[mid]
+        
+        logger.info(f"Probando fecha {test_date} (posición {mid}/{len(all_saturdays)})")
+        
+        result = fetch_lottery_data_for_date(numero, test_date)
+        
+        if result:
+            # Found data, this could be the earliest or there might be earlier data
+            earliest_found = test_date
+            logger.info(f"✅ Datos encontrados en {test_date}, buscando fechas más antiguas...")
+            right = mid - 1  # Search left half for earlier data
+        else:
+            # No data, search right half (more recent dates)
+            logger.info(f"❌ Sin datos en {test_date}, buscando fechas más recientes...")
+            left = mid + 1
+        
+        # Small delay between requests
+        import time
+        time.sleep(0.2)
+    
+    if earliest_found:
+        logger.info(f"Fecha más antigua con datos encontrada: {earliest_found}")
+    else:
+        logger.warning("No se encontraron datos en ningún período")
+    
+    return earliest_found
+
+
 def find_earliest_available_data(numero: str, max_lookback_days: int = 365) -> Optional[str]:
-    """Find the earliest date with available lottery data"""
+    """Find the earliest date with available lottery data (legacy method)"""
     logger.info(f"Buscando la fecha más antigua con datos disponibles para número {numero}")
     
     end_date = datetime.now()
@@ -86,11 +139,19 @@ def find_earliest_available_data(numero: str, max_lookback_days: int = 365) -> O
         current -= timedelta(days=1)
     
     # Test dates until we find one with data
+    consecutive_no_data = 0
+    max_consecutive_no_data = 10  # Stop after 10 consecutive dates with no data
+    
     for date in dates:
         result = fetch_lottery_data_for_date(numero, date)
         if result:
             logger.info(f"Fecha más antigua con datos: {date}")
             return date
+        else:
+            consecutive_no_data += 1
+            if consecutive_no_data >= max_consecutive_no_data:
+                logger.info(f"Detenido después de {max_consecutive_no_data} fechas consecutivas sin datos")
+                break
         
         # Small delay between requests
         import time
@@ -100,12 +161,16 @@ def find_earliest_available_data(numero: str, max_lookback_days: int = 365) -> O
     return None
 
 
+
+
+
 def fetch_all_available_data(numero: str) -> LotteryAnalysis:
     """Fetch ALL available Saturday results for a given number"""
     logger.info(f"Buscando TODOS los datos disponibles para el número {numero}")
 
-    # First, find the earliest available data by checking recent dates
-    earliest_date = find_earliest_available_data(numero, max_lookback_days=365)
+    # Use binary search to find the earliest available data
+    earliest_date = find_earliest_available_data_binary(numero, max_years_back=20)
+    
     if not earliest_date:
         logger.warning("No se encontraron datos disponibles")
         return LotteryAnalysis(
