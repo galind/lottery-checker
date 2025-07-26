@@ -204,7 +204,8 @@ def fetch_all_available_data(numero: str) -> LotteryAnalysis:
         result = fetch_lottery_data_for_date(numero, date)
         if result:
             status = "🎉" if result.has_prize else "❌"
-            logger.info(f"{status} {date}: {result.prize_info}")
+            prize_info = f"{result.prize_amount:,.2f}€" if result.has_prize else "0,00€"
+            logger.info(f"{status} {date}: {result.prize_info} | Premio: {prize_info}")
         else:
             logger.info(f"📭 {date}: Sin datos disponibles")
         return result
@@ -291,7 +292,8 @@ def analyze_lottery_history(numero: str, start_date: str, end_date: str) -> Lott
         result = fetch_lottery_data_for_date(numero, date)
         if result:
             status = "🎉" if result.has_prize else "❌"
-            logger.info(f"{status} {date}: {result.prize_info}")
+            prize_info = f"{result.prize_amount:,.2f}€" if result.has_prize else "0,00€"
+            logger.info(f"{status} {date}: {result.prize_info} | Premio: {prize_info}")
         else:
             logger.info(f"📭 {date}: Sin datos disponibles")
         return result
