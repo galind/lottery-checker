@@ -42,7 +42,7 @@ jobs:
         python lottery_analyzer.py ${{ github.event.inputs.lottery_number }}
         
     - name: Upload analysis results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: lottery-analysis-results
         path: lottery_analysis_*.json 

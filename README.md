@@ -119,8 +119,16 @@ python lottery_analyzer.py 23765
 1. Go to your repository → Actions
 2. Select "Lottery Analyzer" workflow
 3. Click "Run workflow"
-4. Optionally set start and end dates
-5. Download results from artifacts
+4. Enter your lottery number (required)
+5. Optionally set start and end dates
+6. Download results from artifacts
+
+**Artifacts uploaded:**
+- `lottery-analysis-results`: JSON file containing complete analysis data
+  - All lottery results with dates and prize information
+  - Financial statistics (total spent, won, net profit)
+  - Win rate and other metrics
+  - File format: `lottery_analysis_<numero>_<timestamp>.json`
 
 ### Sample Report
 
