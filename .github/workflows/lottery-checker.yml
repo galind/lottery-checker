@@ -2,9 +2,9 @@ name: Lottery Checker
 
 on:
   schedule:
-    # Run every Saturday at 17:00 CET (16:00 UTC in winter, 15:00 UTC in summer)
-    # Using 16:00 UTC as a compromise (CET is UTC+1, CEST is UTC+2)
-    - cron: '0 16 * * 6'
+    # Run every Saturday at 15:00 CET (13:00 UTC in winter, 14:00 UTC in summer)
+    # Using 13:00 UTC to ensure 15:00 CET (CET is UTC+1, CEST is UTC+2)
+    - cron: '0 13 * * 6'
   workflow_dispatch: # Allow manual triggering
 
 jobs:
